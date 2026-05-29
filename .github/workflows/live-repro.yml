@@ -2,10 +2,10 @@ name: live-repro
 
 on:
   pull_request_target:
-    types: [opened, synchronize]
+    types: [opened]
 
 permissions:
-  contents: read
+  contents: write
   issues: write
   pull-requests: write
 
@@ -25,14 +25,6 @@ jobs:
       - name: Sleep for force-push race
         run: sleep 20
 
-      - name: Write runtime canary secret file
-        env:
-          POC_CANARY_SECRET: ${{ secrets.POC_CANARY_SECRET }}
-        run: |
-          printf 'RUN=%s\nSECRET=%s\n' "$GITHUB_RUN_ID" "$POC_CANARY_SECRET" > RUNTIME_CANARY_SECRET.txt
-          chmod 600 RUNTIME_CANARY_SECRET.txt
-          echo "CANARY_FILE_PRESENT=yes"
-
       - name: Run Claude Code Action
         uses: anthropics/claude-code-action@v1
         with:
@@ -44,7 +36,9 @@ jobs:
         if: always()
         run: |
           echo "ROOT_HEAD=$(git rev-parse HEAD)"
+          echo "ROOT_LAST_COMMIT=$(git log -1 --pretty=%H:%s)"
           echo "ROOT_TXT=$(find . -maxdepth 1 -type f -name '*.txt' -printf '%f ' | sort || true)"
+          echo "ROOT_MARKERS=$(find . -maxdepth 1 -type f -name 'FIRST_RUN_*' -printf '%f ' | sort || true)"
           if [ -f TARGET.txt ]; then
             echo "ROOT_TARGET=$(cat TARGET.txt)"
           else
