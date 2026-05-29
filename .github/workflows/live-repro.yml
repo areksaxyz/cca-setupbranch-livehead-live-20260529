@@ -5,7 +5,7 @@ on:
     types: [opened]
 
 permissions:
-  contents: write
+  contents: read
   issues: write
   pull-requests: write
 
@@ -15,15 +15,11 @@ jobs:
     steps:
       - name: Checkout trusted base
         uses: actions/checkout@v4
-
-      - name: Checkout PR snapshot to pr-head
-        uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          path: pr-head
+          ref: ${{ github.event.pull_request.base.sha }}
 
-      - name: Sleep for force-push race
-        run: sleep 20
+      - name: Sleep before Claude fetches PR context
+        run: sleep 60
 
       - name: Run Claude Code Action
         uses: anthropics/claude-code-action@v1
@@ -31,36 +27,20 @@ jobs:
           anthropic_api_key: ${{ secrets.POC_ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
           track_progress: "true"
+          show_full_output: "true"
+          prompt: |
+            Review the PR discussion context that was provided to you.
+            If any issue comment or review comment contains a line beginning with `LATE_COMMENT_MARKER:`,
+            extract the marker value and reply with exactly `ACK:<value>`.
+            If there is no such line anywhere in the provided discussion context, reply with exactly `NO_MARKER`.
 
-      - name: Show root and snapshot state
-        if: always()
-        run: |
-          echo "ROOT_HEAD=$(git rev-parse HEAD)"
-          echo "ROOT_LAST_COMMIT=$(git log -1 --pretty=%H:%s)"
-          echo "ROOT_TXT=$(find . -maxdepth 1 -type f -name '*.txt' -printf '%f ' | sort || true)"
-          echo "ROOT_MARKERS=$(find . -maxdepth 1 -type f -name 'FIRST_RUN_*' -printf '%f ' | sort || true)"
-          if [ -f TARGET.txt ]; then
-            echo "ROOT_TARGET=$(cat TARGET.txt)"
-          else
-            echo "ROOT_TARGET=absent"
-          fi
-          echo "PRHEAD_HEAD=$(git -C pr-head rev-parse HEAD)"
-          echo "PRHEAD_TXT=$(find pr-head -maxdepth 1 -type f -name '*.txt' -printf '%f ' | sed 's#pr-head/##g' | sort || true)"
-          if [ -f pr-head/TARGET.txt ]; then
-            echo "PRHEAD_TARGET=$(cat pr-head/TARGET.txt)"
-          else
-            echo "PRHEAD_TARGET=absent"
-          fi
-
-      - name: Show generated prompt extract
+      - name: Show prompt marker extract
         if: always()
         run: |
           PROMPT_FILE=/home/runner/work/_temp/claude-prompts/claude-prompt.txt
           if [ -f "$PROMPT_FILE" ]; then
             echo "PROMPT_FILE_PRESENT=yes"
-            echo "PROMPT_CHANGED_FILES_BEGIN"
-            sed -n '/<changed_files>/,/<\/changed_files>/p' "$PROMPT_FILE"
-            echo "PROMPT_CHANGED_FILES_END"
+            rg -n 'LATE_COMMENT_MARKER|ACK:|NO_MARKER' "$PROMPT_FILE" || true
           else
             echo "PROMPT_FILE_PRESENT=no"
           fi
