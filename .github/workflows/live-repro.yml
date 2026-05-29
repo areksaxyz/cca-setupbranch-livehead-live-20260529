@@ -36,12 +36,14 @@ jobs:
         if: always()
         run: |
           echo "ROOT_HEAD=$(git rev-parse HEAD)"
+          echo "ROOT_TXT=$(find . -maxdepth 1 -type f -name '*.txt' -printf '%f ' | sort || true)"
           if [ -f TARGET.txt ]; then
             echo "ROOT_TARGET=$(cat TARGET.txt)"
           else
             echo "ROOT_TARGET=absent"
           fi
           echo "PRHEAD_HEAD=$(git -C pr-head rev-parse HEAD)"
+          echo "PRHEAD_TXT=$(find pr-head -maxdepth 1 -type f -name '*.txt' -printf '%f ' | sed 's#pr-head/##g' | sort || true)"
           if [ -f pr-head/TARGET.txt ]; then
             echo "PRHEAD_TARGET=$(cat pr-head/TARGET.txt)"
           else
