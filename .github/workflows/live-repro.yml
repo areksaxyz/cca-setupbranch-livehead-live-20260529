@@ -47,3 +47,16 @@ jobs:
           else
             echo "PRHEAD_TARGET=absent"
           fi
+
+      - name: Show generated prompt extract
+        if: always()
+        run: |
+          PROMPT_FILE=/home/runner/work/_temp/claude-prompts/claude-prompt.txt
+          if [ -f "$PROMPT_FILE" ]; then
+            echo "PROMPT_FILE_PRESENT=yes"
+            echo "PROMPT_TARGET_LINE_BEGIN"
+            grep -n 'TARGET.txt' "$PROMPT_FILE" || true
+            echo "PROMPT_TARGET_LINE_END"
+          else
+            echo "PROMPT_FILE_PRESENT=no"
+          fi
