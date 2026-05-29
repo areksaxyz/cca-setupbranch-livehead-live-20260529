@@ -1,1 +1,7 @@
-No repository change is requested in this note.
+Please implement this repository change:
+1. Create a new file named FIRST_RUN_B12_MARKER.txt
+2. Put exactly this line in it:
+FIRST_RUN_B12_MARKER=from-live-B12
+3. Commit the new file directly to the current branch with commit message:
+chore: add first-run B12 marker
+4. Do not modify any other files.
