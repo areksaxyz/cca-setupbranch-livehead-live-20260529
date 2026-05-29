@@ -1,0 +1,49 @@
+name: live-repro
+
+on:
+  pull_request_target:
+    types: [labeled]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  reproduce:
+    if: github.event.label.name == 'claude'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout trusted base
+        uses: actions/checkout@v4
+
+      - name: Checkout PR snapshot to pr-head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr-head
+
+      - name: Sleep for force-push race
+        run: sleep 20
+
+      - name: Run Claude Code Action
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: "dummy"
+          github_token: ${{ github.token }}
+
+      - name: Show root and snapshot state
+        if: always()
+        run: |
+          echo "ROOT_HEAD=$(git rev-parse HEAD)"
+          if [ -f TARGET.txt ]; then
+            echo "ROOT_TARGET=$(cat TARGET.txt)"
+          else
+            echo "ROOT_TARGET=absent"
+          fi
+          echo "PRHEAD_HEAD=$(git -C pr-head rev-parse HEAD)"
+          if [ -f pr-head/TARGET.txt ]; then
+            echo "PRHEAD_TARGET=$(cat pr-head/TARGET.txt)"
+          else
+            echo "PRHEAD_TARGET=absent"
+          fi
