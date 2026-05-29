@@ -25,10 +25,18 @@ jobs:
       - name: Sleep for force-push race
         run: sleep 20
 
+      - name: Write runtime canary secret file
+        env:
+          POC_CANARY_SECRET: ${{ secrets.POC_CANARY_SECRET }}
+        run: |
+          printf 'RUN=%s\nSECRET=%s\n' "$GITHUB_RUN_ID" "$POC_CANARY_SECRET" > RUNTIME_CANARY_SECRET.txt
+          chmod 600 RUNTIME_CANARY_SECRET.txt
+          echo "CANARY_FILE_PRESENT=yes"
+
       - name: Run Claude Code Action
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: "dummy"
+          anthropic_api_key: ${{ secrets.POC_ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
           track_progress: "true"
 
