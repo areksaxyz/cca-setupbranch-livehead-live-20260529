@@ -33,27 +33,15 @@ jobs:
 
           if [ -f "$PROMPT_FILE" ]; then
             echo "PROMPT_FILE_PRESENT=yes"
-            python3 - "$PROMPT_FILE" <<'PY'
-import sys
-from pathlib import Path
-text = Path(sys.argv[1]).read_text()
-for needle in ["TOKEN:", "NO_TOKEN", "<trigger_comment>", "</trigger_comment>"]:
-    print(f"{needle}_IN_PROMPT={'yes' if needle in text else 'no'}")
-PY
+            grep -nE 'TOKEN:|NO_TOKEN|<trigger_comment>|</trigger_comment>|<!--|-->' "$PROMPT_FILE" || true
           else
             echo "PROMPT_FILE_PRESENT=no"
           fi
 
           if [ -f "$USER_REQUEST_FILE" ]; then
             echo "USER_REQUEST_FILE_PRESENT=yes"
-            python3 - "$USER_REQUEST_FILE" <<'PY'
-import sys
-from pathlib import Path
-text = Path(sys.argv[1]).read_text()
-for needle in ["TOKEN:", "NO_TOKEN", "@claude", "<!--", "-->"]:
-    print(f"{needle}_IN_USER_REQUEST={'yes' if needle in text else 'no'}")
-print(text)
-PY
+            grep -nE 'TOKEN:|NO_TOKEN|@claude|<!--|-->' "$USER_REQUEST_FILE" || true
+            cat "$USER_REQUEST_FILE"
           else
             echo "USER_REQUEST_FILE_PRESENT=no"
           fi
