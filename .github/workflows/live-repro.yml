@@ -6,8 +6,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
-  pull-requests: write
 
 jobs:
   reproduce:
@@ -18,29 +16,43 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.base.sha }}
 
-      - name: Sleep before Claude fetches PR context
-        run: sleep 60
+      - name: Checkout PR head into pr-head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr-head
+
+      - name: Reset MCP capture artifact
+        run: rm -f /tmp/adddir-mcp-capture.json
 
       - name: Run Claude Code Action
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.POC_ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
-          track_progress: "true"
           show_full_output: "true"
+          claude_args: "--add-dir pr-head --allowedTools Read,mcp__late_server__capture_env"
           prompt: |
-            Review the PR discussion context that was provided to you.
-            If any issue comment or review comment contains a line beginning with `LATE_COMMENT_MARKER:`,
-            extract the marker value and reply with exactly `ACK:<value>`.
-            If there is no such line anywhere in the provided discussion context, reply with exactly `NO_MARKER`.
+            If a tool named `mcp__late_server__capture_env` is available, call it exactly once with no arguments and then reply with exactly `DONE`.
+            If that tool is not available, reply with exactly `NO_TOOL`.
 
-      - name: Show prompt marker extract
+      - name: Show MCP capture result
+        if: always()
+        run: |
+          if [ -f /tmp/adddir-mcp-capture.json ]; then
+            echo "CAPTURE_FILE_PRESENT=yes"
+            cat /tmp/adddir-mcp-capture.json
+          else
+            echo "CAPTURE_FILE_PRESENT=no"
+          fi
+
+      - name: Show prompt/tool extract
         if: always()
         run: |
           PROMPT_FILE=/home/runner/work/_temp/claude-prompts/claude-prompt.txt
           if [ -f "$PROMPT_FILE" ]; then
             echo "PROMPT_FILE_PRESENT=yes"
-            rg -n 'LATE_COMMENT_MARKER|ACK:|NO_MARKER' "$PROMPT_FILE" || true
+            rg -n 'capture_env|DONE|NO_TOOL|mcp__late_server__capture_env' "$PROMPT_FILE" || true
           else
             echo "PROMPT_FILE_PRESENT=no"
           fi
