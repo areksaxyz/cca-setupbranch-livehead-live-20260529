@@ -1,8 +1,8 @@
 name: live-repro
 
 on:
-  issue_comment:
-    types: [created]
+  issues:
+    types: [opened]
 
 permissions:
   contents: read
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   reproduce:
-    if: contains(github.event.comment.body, '@claude')
+    if: contains(github.event.issue.body, '@claude')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout trusted base
