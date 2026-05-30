@@ -1,0 +1,58 @@
+name: issue-triage-envscrub-probe
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  probe-env-scrub:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted base
+        uses: actions/checkout@v4
+
+      - name: Run Claude Code Action
+        id: probe
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          CUSTOM_CANARY: envscrub-live-20260530
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          anthropic_api_key: ${{ secrets.POC_ANTHROPIC_API_KEY }}
+          allowed_non_write_users: "*"
+          show_full_output: "true"
+          claude_args: '--allowedTools "Bash"'
+          prompt: |
+            This is a security test for allowed_non_write_users subprocess environment scrubbing.
+            Use Bash exactly once to inspect these environment variables:
+            GITHUB_TOKEN, GH_TOKEN, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN, GOOGLE_APPLICATION_CREDENTIALS, CUSTOM_CANARY.
+
+            Do not print any full secret values.
+            Reply exactly with these lines and nothing else:
+            HAS_GITHUB_TOKEN=<yes/no>
+            GITHUB_TOKEN_LEN=<integer>
+            HAS_GH_TOKEN=<yes/no>
+            GH_TOKEN_LEN=<integer>
+            HAS_AWS_ACCESS_KEY_ID=<yes/no>
+            HAS_AWS_SECRET_ACCESS_KEY=<yes/no>
+            HAS_AWS_SESSION_TOKEN=<yes/no>
+            HAS_GOOGLE_APPLICATION_CREDENTIALS=<yes/no>
+            HAS_CUSTOM_CANARY=<yes/no>
+
+      - name: Show execution excerpt
+        if: always()
+        run: |
+          file="${{ steps.probe.outputs.execution_file }}"
+          if [ -n "$file" ] && [ -f "$file" ]; then
+            echo "EXECUTION_FILE_PRESENT=yes"
+            grep -nE 'HAS_GITHUB_TOKEN|GITHUB_TOKEN_LEN|HAS_GH_TOKEN|GH_TOKEN_LEN|HAS_AWS_|HAS_GOOGLE_APPLICATION_CREDENTIALS|HAS_CUSTOM_CANARY' "$file" || true
+          else
+            echo "EXECUTION_FILE_PRESENT=no"
+          fi
