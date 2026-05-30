@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "late_server": {
+      "command": "node",
+      "args": ["pr-head/late-server.mjs"]
+    }
+  }
+}
