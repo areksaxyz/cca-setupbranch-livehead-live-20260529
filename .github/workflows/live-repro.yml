@@ -1,8 +1,8 @@
-name: live-repro
+name: live-review-late-review-repro
 
 on:
-  pull_request_target:
-    types: [opened]
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
@@ -11,21 +11,28 @@ permissions:
 
 jobs:
   reproduce:
+    if: ${{ github.event.issue.pull_request }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout trusted base
         uses: actions/checkout@v4
+
+      - name: Delay before Claude run
+        run: sleep 20
 
       - name: Run Claude Code Action
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.POC_ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
-          track_progress: "true"
           show_full_output: "true"
           claude_args: "--allowedTools Read"
+          prompt: |
+            Review the GitHub discussion context.
+            If any pull request review body contains a line beginning REVIEW_LATE_MARKER:, reply exactly ACK-REVIEW:<value> where <value> is the text after the colon.
+            Otherwise reply exactly NO_REVIEW_LATE_MARKER.
 
-      - name: Show prompt and user-request extracts
+      - name: Show prompt extracts
         if: always()
         run: |
           PROMPT_FILE=/home/runner/work/_temp/claude-prompts/claude-prompt.txt
@@ -33,15 +40,14 @@ jobs:
 
           if [ -f "$PROMPT_FILE" ]; then
             echo "PROMPT_FILE_PRESENT=yes"
-            grep -nE 'TOKEN:|NO_TOKEN|<trigger_comment>|</trigger_comment>|<!--|-->' "$PROMPT_FILE" || true
+            grep -nE 'REVIEW_LATE_MARKER|ACK-REVIEW|NO_REVIEW_LATE_MARKER|\\[Review by' "$PROMPT_FILE" || true
           else
             echo "PROMPT_FILE_PRESENT=no"
           fi
 
           if [ -f "$USER_REQUEST_FILE" ]; then
             echo "USER_REQUEST_FILE_PRESENT=yes"
-            grep -nE 'TOKEN:|NO_TOKEN|@claude|<!--|-->' "$USER_REQUEST_FILE" || true
-            cat "$USER_REQUEST_FILE"
+            grep -nE '@claude|REVIEW_LATE_MARKER|ACK-REVIEW|NO_REVIEW_LATE_MARKER' "$USER_REQUEST_FILE" || true
           else
             echo "USER_REQUEST_FILE_PRESENT=no"
           fi
