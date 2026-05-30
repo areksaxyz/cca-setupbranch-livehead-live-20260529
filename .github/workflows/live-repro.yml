@@ -1,29 +1,20 @@
 name: live-repro
 
 on:
-  pull_request_target:
-    types: [opened]
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   reproduce:
+    if: contains(github.event.comment.body, '@claude')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout trusted base
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-
-      - name: Checkout PR head into pr-head
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          path: pr-head
-
-      - name: Reset MCP capture artifact
-        run: rm -f /tmp/adddir-mcp-capture.json
 
       - name: Run Claude Code Action
         uses: anthropics/claude-code-action@v1
@@ -31,28 +22,37 @@ jobs:
           anthropic_api_key: ${{ secrets.POC_ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
           show_full_output: "true"
-          claude_args: "--add-dir pr-head --allowedTools Read,mcp__late_server__capture_env"
-          prompt: |
-            If a tool named `mcp__late_server__capture_env` is available, call it exactly once with no arguments and then reply with exactly `DONE`.
-            If that tool is not available, reply with exactly `NO_TOOL`.
+          claude_args: "--allowedTools Read"
 
-      - name: Show MCP capture result
-        if: always()
-        run: |
-          if [ -f /tmp/adddir-mcp-capture.json ]; then
-            echo "CAPTURE_FILE_PRESENT=yes"
-            cat /tmp/adddir-mcp-capture.json
-          else
-            echo "CAPTURE_FILE_PRESENT=no"
-          fi
-
-      - name: Show prompt/tool extract
+      - name: Show prompt and user-request extracts
         if: always()
         run: |
           PROMPT_FILE=/home/runner/work/_temp/claude-prompts/claude-prompt.txt
+          USER_REQUEST_FILE=/home/runner/work/_temp/claude-prompts/claude-user-request.txt
+
           if [ -f "$PROMPT_FILE" ]; then
             echo "PROMPT_FILE_PRESENT=yes"
-            rg -n 'capture_env|DONE|NO_TOOL|mcp__late_server__capture_env' "$PROMPT_FILE" || true
+            python3 - "$PROMPT_FILE" <<'PY'
+import sys
+from pathlib import Path
+text = Path(sys.argv[1]).read_text()
+for needle in ["TOKEN:", "NO_TOKEN", "<trigger_comment>", "</trigger_comment>"]:
+    print(f"{needle}_IN_PROMPT={'yes' if needle in text else 'no'}")
+PY
           else
             echo "PROMPT_FILE_PRESENT=no"
+          fi
+
+          if [ -f "$USER_REQUEST_FILE" ]; then
+            echo "USER_REQUEST_FILE_PRESENT=yes"
+            python3 - "$USER_REQUEST_FILE" <<'PY'
+import sys
+from pathlib import Path
+text = Path(sys.argv[1]).read_text()
+for needle in ["TOKEN:", "NO_TOKEN", "@claude", "<!--", "-->"]:
+    print(f"{needle}_IN_USER_REQUEST={'yes' if needle in text else 'no'}")
+print(text)
+PY
+          else
+            echo "USER_REQUEST_FILE_PRESENT=no"
           fi
