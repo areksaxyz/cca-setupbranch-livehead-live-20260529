@@ -1,16 +1,16 @@
 name: live-repro
 
 on:
-  issues:
+  pull_request_target:
     types: [opened]
 
 permissions:
   contents: read
   issues: write
+  pull-requests: write
 
 jobs:
   reproduce:
-    if: contains(github.event.issue.body, '@claude')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout trusted base
@@ -21,6 +21,7 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.POC_ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
+          track_progress: "true"
           show_full_output: "true"
           claude_args: "--allowedTools Read"
 
